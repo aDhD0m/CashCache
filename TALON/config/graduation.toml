@@ -1,0 +1,53 @@
+# graduation.toml -- Tier gates, track record requirements, demotion rules
+# Ref: TALON_ARCHITECTURE_v3.2.0 S5
+
+# --- Tier Gates (S5.1) ---
+
+[gates.hatch]
+min_capital = 500
+account_type = "cash"
+track_record = "none"
+broker_requirement = "ibkr_verified"
+
+[gates.hatch_margin]
+min_capital = 5000
+account_type = "margin"
+track_record = "none"
+broker_requirement = "ibkr_margin_approved"
+options_level = 1                     # Level 1 (Limited) for Siphon preview
+
+[gates.takeoff]
+min_capital = 25000
+account_type = "margin"
+min_live_trades = 20
+min_any_trades = 10                   # paper trades count at 0.5x
+min_win_rate_pct = 50.0               # on live trades only
+max_drawdown_pct = 20.0
+broker_requirement = "ibkr_margin"
+
+[gates.turbo]
+min_capital = 30000
+account_type = "margin"
+min_trades_across_takeoff = 60
+min_documented_short_theses = 10
+broker_requirement = "cobra_or_centerpoint_active"
+
+[gates.payload]
+min_capital = 50000
+account_type = "margin"
+min_validated_days_snapback = 30
+min_validated_days_yoyo = 30
+both_must_be_profitable = true
+broker_requirement = "turbo_broker"
+
+# --- Demotion (S5.2) ---
+
+[demotion]
+soft_threshold_pct = 10.0            # within 10% of gate capital = warning
+hard_threshold_pct = 10.0            # >10% below gate = modules paused
+re_graduation_requires_track_record = false  # capital recovery only
+
+# --- Paper Trade Weighting ---
+
+[track_record]
+paper_trade_weight = 0.5             # 1 paper trade = 0.5 live trades

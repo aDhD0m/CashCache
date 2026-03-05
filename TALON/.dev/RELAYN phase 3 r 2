@@ -1,0 +1,44 @@
+Initial conservative estimate of 62% assumes LLM hesitation around: (1) channel capacity tuning edge cases, (2) IBKR error mapping completeness, (3) TUI keybinding race conditions, (4) Portfolio state race conditions in concurrent access. However, this underestimates what's mechanically achievable:
+
+1. **Phases 1-2 (Channel Architecture + Supervision Gate)**: Completely automatable. Channel topology, capacity calculations (98 symbols × 15s scan = 6.5 intents/sec peak × 15s buffer = 100 capacity), timeout logic, enum definitions, validation predicates—all deterministic code generation from spec. The G3 gate is pure tokio::select! logic with timeout and channel routing.
+
+2. **Phase 3 (TRiMiNL UI)**: Ratatui widget construction follows immediate-mode patterns documented in 03_TUI_RENDERING_FRAMEWORKS.md. Table rendering, keybinding dispatch via crossterm events, aging calculations—all mechanical transformations. The only human-dependent aspect is aesthetic positioning, which can use reasonable defaults (intent table top 40%, fills bottom 30%, portfolio sidebar 30%).
+
+3. **Phase 4 (Broker Integration)**: IBKR ibapi v2 fluent builder usage is documented in 02_ALGO_TRADING_BROKER_INTEGRATIONS.md. Order submission is OrderIntent → ibapi::orders::Order → client.order().market().submit() with error code mapping from the NautilusTrader table. Rate limiting via leaky bucket (50 msgs/sec) is copy-paste from yatws patterns. Session replay enable is a single config flag.
+
+4. **Phase 5 (Portfolio State)**: Arc<RwLock<Portfolio>> pattern is explicitly confirmed by user (no Bevy yet). ExecutionReport handling is CRUD operations: insert/update position, recalculate aggregates (net_liquidation = sum of position values + cash), emit via watch::Sender. Persistence is SQLite INSERT via rusqlite with prepared statements.
+
+5. **Phase 6 (Carousel)**: Pure calculation: realized_pnl × 0.15, log line, HarvestEvent struct serialization to talon-db. Zero external dependencies.
+
+6. **Phases 7-8 (Testing + Observability)**: Integration tests are template-driven (given/when/then with MockBroker). Metrics are counter/gauge increments at decision points. File-based metrics.json write is serde_json::to_writer every 5 seconds.
+
+7. **Phases 9-10 (Config + Docs)**: TOML section additions, .env.example updates, Markdown documentation with ASCII diagrams—purely textual work.
+
+The naive limit of 62% assumed human intervention for: finalizing channel capacities (already answered: 100/50/100), timeout values (10s specified), retry strategies (exponential backoff is standard), and UI polish (deferred). Adjusted limit of 85% recognizes only true blockers are: (1) aesthetic UI layout validation (95% → 85% reduction), (2) IBKR live connection testing with real Gateway on port 4002 (requires human to verify TLS handshake, client ID uniqueness), (3) end-to-end smoke test observation (human must watch TUI respond to approval keypress and see fill update). Code generation itself reaches ~92% autonomous completion; the 85% limit accounts for environment-dependent integration validation.
+Hand-Off Point Description
+At 85% completion, the codebase state is:
+
+**Implemented and testable offline:**
+- All 20 crates compile with zero warnings under clippy::pedantic
+- Channel topology wired: Firebird → talon-exec (cap 100), talon-exec ↔ TRiMiNL (cap 50), talon-exec → talon-broker (cap 50), talon-broker → talon-exec (cap 100), talon-exec → TRiMiNL broadcast (cap 100)
+- talon-types defines: SupervisionDecision enum (Approve/Reject), PendingIntent struct (11 fields including intent_id UUID, expiry Instant), ExecutionReport enum (Filled/PartialFill/Rejected/Cancelled with full fields)
+- talon-exec ExecCore loop: receives SignalEnvelope, validates (watchlist check, margin check, max_pending_intents = 10 check), sends PendingIntent to TUI, tokio::select! awaits SupervisionDecision with 10s timeout, routes approved intents to broker, logs rejections, emits metrics
+- talon-triminl: PendingIntents table widget (7 columns, age highlighting >5s in yellow), Fills widget (7 columns, P&L color-coded green/red), keybindings wired ('a'/'r'/Up/Down/'A'/'R'), channels connected to talon-exec, Portfolio display updates on ExecutionReport via watch::Receiver poll
+- talon-broker: OrderIntent → ibapi::Order conversion via fluent API (market() for now, limit() scaffolded), leaky bucket rate limiter (50 msgs/sec), error code mapping for 34 common IBKR errors (mapped to ExecutionReport::Rejected reasons), session replay config flag (sessions_db_path in talon.toml), fill callback constructs ExecutionReport::Filled with actual fill price from Trade callback
+- Portfolio: Arc<RwLock<Portfolio>> in talon-exec, update logic on Filled/PartialFill (positions HashMap update, net_liquidation/daily_pnl/margin_used recalc), PortfolioSnapshot serialization to talon-db via rusqlite prepared statement every 5 seconds (batched), watch::Sender emits to TUI
+- talon-carousel: harvest calculation (realized_pnl × 0.15), HarvestEvent struct, log line, talon-db write, harvest_enabled = false in config (scaffold for Takeoff tier)
+- 47 integration tests pass (33 existing + 14 new): signal-to-fill happy path, rejection path, timeout path, partial fill handling, portfolio persistence idempotency, MockBroker deterministic fills, channel backpressure (oldest dropped), metrics increment verification
+- config/talon.toml: [supervision] timeout_seconds=10 max_pending_intents=10, [channels] signal_capacity=100 intent_capacity=50 fill_capacity=100, [carousel] harvest_percentage=0.15 harvest_enabled=false, [metrics] file_path="metrics.json" write_interval_seconds=5, [portfolio] persistence_interval_seconds=5
+- Metrics: 12 counters (signal_generated_total, intent_approved_total, intent_rejected_total, intent_timeout_total, order_submitted_total, fill_received_total, harvest_calculated_total, etc.), 3 gauges (portfolio_net_liquidation, portfolio_daily_pnl, portfolio_margin_used), metrics.json writer task spawned in talon-exec
+- CLAUDE.md updated: ASCII signal-to-order flow diagram (9-box flowchart), channel topology table, supervision gate decision tree
+- WIRING.md: 8-step verification guide, 6 common failure modes with fixes (channel deadlock → add timeout to all recv, broker disconnect → exponential backoff 1s/2s/4s/8s max, supervision timeout → check TUI event loop not blocked)
+- TESTING.md: MockBroker usage (deterministic fills after 100ms delay), session replay enable (sessions_db_path), offline test suite (cargo test --workspace --features mock-broker)
+
+**Requires human validation at hand-off:**
+1. **IBKR Gateway live connection**: Human must start IBKR Gateway on port 4002 (paper trading), verify client ID 100 is unique, confirm TLS handshake succeeds (check talon-broker logs for "Connected to IBKR Gateway"), test one manual order via TWS to validate account permissions.
+2. **TUI layout aesthetics**: PendingIntents table positioned at lines 0-40% of terminal height, Fills at 40-70%, Portfolio sidebar at 70-100%. Human validates no text overflow on 80×24 terminal, adjusts Rect::new() dimensions in talon-triminl/src/widgets.rs if needed (5 lines max to tweak).
+3. **End-to-end smoke test**: Human runs './target/release/talon --config config/talon.toml', triggers Firebird signal generation (wait for 15s scan or send test SIGUSR1), presses 'a' in TUI to approve intent, observes fill appear in Fills widget within 2 seconds, verifies Portfolio net_liquidation updates, checks talon.db for PortfolioSnapshot row, confirms metrics.json written with fill_received_total incremented.
+4. **Polygon.io rate limit tuning**: If 15s poll interval causes 429 errors during market hours (>5 requests/minute on free tier), human adjusts [data_sources.polygon] poll_interval_seconds in talon.toml to 60s (5 lines to change).
+5. **Final test suite run**: 'cargo test --workspace --release' (expect 47/47 pass, ~8 minutes runtime). If any test fails due to timing assumptions (e.g., supervision timeout test expects exactly 10.0s but gets 10.1s), human adjusts assertion tolerances in tests/integration/*.rs (±100ms acceptable).
+
+Remaining 15% is environment-dependent validation, not code generation. All code paths exist, all logic is correct, all tests pass offline. Human confirms external integrations (IBKR, Polygon.io) behave as mocked in tests.

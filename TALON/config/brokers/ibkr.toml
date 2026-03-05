@@ -1,0 +1,44 @@
+# ibkr.toml -- Interactive Brokers configuration
+# Ref: TALON_ARCHITECTURE_v3.2.0 S6.1, CASHCACHE_MODULE_SPEC_v0.4.0 S8
+
+[broker]
+id = "ibkr"
+name = "Interactive Brokers"
+priority = "P0"
+api = "tws"                           # "tws" or "client_portal_rest"
+
+[broker.tws]
+host = "127.0.0.1"
+port = 4002                           # 4002 = IB Gateway paper, 4001 = live
+client_id = 1
+# Use separate client_id per connection to avoid conflicts.
+# TALON active trading = client_id 1
+# CashCache Vault = client_id 2
+
+[broker.client_portal]
+# REST fallback if TWS gateway crashes (S12.4)
+base_url = "https://localhost:5000/v1/api"
+# Client Portal requires browser-based auth session.
+# Not suitable for primary -- use as emergency fallback only.
+
+[broker.accounts]
+active_account_id = ""                # Primary trading account
+vault_sub_account_id = ""             # CashCache Vault sub-account (S8.1)
+
+[broker.reconnection]
+max_retries = 30
+retry_interval_secs = 10
+reconnect_triggers_reconciliation = true
+
+[broker.margin]
+max_margin_utilization_pct = 90.0     # Never use 100% -- IBKR liquidates at 3:58 PM
+
+[broker.options]
+# Checked at startup. Insufficient level disables relevant modules.
+# Level 1 = Limited (cash-secured puts, covered calls)
+# Level 2 = Standard (long options, verticals, calendars)
+required_level = 2
+
+[broker.emergency]
+web_trader_url = "https://www.interactivebrokers.com/webtrader"
+phone = ""                            # IBKR customer service

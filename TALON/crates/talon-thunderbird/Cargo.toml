@@ -1,0 +1,12 @@
+[package]
+name = "talon-thunderbird"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+talon-types = { path = "../talon-types" }
+talon-util = { path = "../talon-util" }
+async-trait = { workspace = true }
+tracing = { workspace = true }
+rust_decimal = { workspace = true }
+chrono = { workspace = true }

@@ -1,0 +1,16 @@
+[package]
+name = "talon-broker"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+talon-types = { path = "../talon-types" }
+tokio = { workspace = true }
+async-trait = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+rust_decimal = { workspace = true }
+chrono = { workspace = true }
+futures = { workspace = true }
+ibapi = { workspace = true }
+uuid = { workspace = true }

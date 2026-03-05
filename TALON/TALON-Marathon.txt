@@ -1,0 +1,183 @@
+You are continuing autonomous development of TALON v3.2.0 from 85% completion to 100% production-ready Hatch-tier operation.
+
+**Current verified state (completed by previous phase):**
+- All 20 crates compile clean (clippy::pedantic pass)
+- 47 integration tests pass (33 original + 14 new signal-to-fill pipeline tests)
+- Channel topology fully wired: Firebird → talon-exec (cap 100), talon-exec ↔ TRiMiNL (cap 50), talon-exec → talon-broker (cap 50), talon-broker → talon-exec (cap 100), talon-exec → TRiMiNL broadcast (cap 100)
+- talon-types: SupervisionDecision enum, PendingIntent struct (11 fields), ExecutionReport enum (Filled/PartialFill/Rejected/Cancelled)
+- talon-exec: ExecCore supervision gate with 10s timeout, max_pending_intents=10 validation, metrics emission
+- talon-triminl: PendingIntents widget (7 columns, age highlighting >5s), Fills widget (P&L color-coded), keybindings wired ('a'/'r'/Up/Down/'A'/'R')
+- talon-broker: ibapi v2 integration with fluent API, rate limiter (50 msgs/sec), 34 IBKR error codes mapped, session replay scaffolded
+- Portfolio: Arc<RwLock<Portfolio>> with update logic, 5-second persistence to talon-db, watch::Sender to TUI
+- talon-carousel: harvest calculation (realized_pnl × 0.15), logging only (harvest_enabled=false)
+- config/talon.toml: [supervision], [channels], [carousel], [metrics], [portfolio] sections populated
+- Documentation: CLAUDE.md (signal-to-order flow diagram), WIRING.md (8-step verification), TESTING.md (MockBroker usage)
+
+**Environment configuration (provided by user):**
+- IBKR Gateway running on port [IBKR Gateway Port] (paper trading)
+- IBKR Client ID: 333 (verified unique)
+- Polygon.io API key: pnJBjV3H76ZzH4oCix_YhjjXECphJo7Q (tested, non-429 response)
+- Workspace root: /home/ADHD0M/projects/CashCache/TALON/
+- .env file created with IBKR and Polygon credentials
+- All tests pass (47/47) in release mode
+- TUI renders correctly in 80×24 terminal
+- talon.db and metrics.json files initialized
+
+**Remaining 15% autonomous work (Phases 10-12):**
+
+**Phase 10: Live IBKR Connection Validation & Tuning**
+1. Review talon-broker connection logs for TLS handshake success. If connection fails:
+   - Check error code against 02_ALGO_TRADING_BROKER_INTEGRATIONS.md IBKR error table
+   - If error 502 ("Can't connect to TWS"), verify Gateway port [IBKR Gateway Port] matches talon.toml [broker.ibkr] port setting
+   - If error 326 ("Client ID in use"), increment client ID to 333 + 1 in .env and talon.toml
+   - Implement exponential backoff retry (1s, 2s, 4s, 8s max) in talon-broker/src/ibkr_adapter.rs connect() method
+2. Submit one test market order for 1 share of SPY via Firebird:
+   - Trigger signal generation (wait 15s for scan or send SIGUSR1 to process)
+   - Approve intent in TUI with 'a' key
+   - Verify order appears in TWS 'Orders' panel within 2 seconds
+   - Confirm fill callback arrives and ExecutionReport::Filled updates Portfolio
+   - If order rejected (error 201 "Order rejected"), check TWS account permissions for paper trading equity orders
+3. Validate rate limiter: send burst of 60 intents in <1 second (modify Firebird test to loop). Confirm:
+   - Only 50 orders/second submitted to IBKR (check broker logs for rate limit drops)
+   - Excess intents queue in talon-exec → talon-broker channel (cap 50)
+   - No IBKR error 100 ("Max rate of messages per second has been exceeded")
+4. Test session replay:
+   - Enable [broker.ibkr] session_replay_enabled=true in talon.toml
+   - Run './target/release/talon' for 60 seconds, approve 3 intents, shutdown
+   - Verify sessions.db file created in /home/ADHD0M/projects/CashCache/TALON/
+   - Replay session: modify talon-broker to read from sessions.db on startup (add --replay-session flag)
+   - Confirm replayed fills produce identical ExecutionReport::Filled events
+
+**Phase 11: TUI Layout Polish & Responsiveness**
+1. Validate PendingIntents widget layout on 80×24 terminal:
+   - Measure actual column widths: Intent ID (8 chars UUID prefix), Symbol (6 chars max), Side (4 chars "BUY"/"SELL"), Qty (6 chars), Price (10 chars $XXX.XX), Strategy (10 chars), Age (5 chars "XXXs")
+   - Total width: 49 chars + 6 separators = 55 chars (fits 80-column terminal with 25-char margin)
+   - If overflow occurs, truncate Strategy column to 8 chars with ".." suffix
+2. Test PendingIntents age highlighting:
+   - Generate intent, wait 6 seconds without approving
+   - Confirm age column turns yellow (ANSI color code \x1b[33m) at >5s threshold
+   - Wait 11 seconds, confirm no color change at 10s (timeout triggers auto-reject, row disappears)
+3. Validate Fills widget P&L color-coding:
+   - Submit buy order for SPY at market, wait for fill
+   - Immediately submit sell order for same quantity at market
+   - Confirm Fills widget shows: green row if sell price > buy price, red row if sell price < buy price
+   - Check P&L calculation: (sell_price - buy_price) × quantity, rendered as "$±XX.XX"
+4. Test keybinding responsiveness:
+   - Generate 5 intents rapidly (modify Firebird scan interval to 1s for testing)
+   - Press 'Down' arrow 4 times, confirm highlight moves to 5th row
+   - Press 'a', confirm only highlighted intent approved (other 4 remain pending)
+   - Press 'A' (approve all), confirm all 4 remaining intents approved simultaneously
+   - Check talon-exec logs for 5 SupervisionDecision::Approve events in correct order
+5. Measure TUI event loop latency:
+   - Add timestamp logging in talon-triminl keypress handler
+   - Press 'a', measure time from keypress to SupervisionDecision sent to talon-exec
+   - Target: <50ms latency (crossterm event poll + channel send)
+   - If latency >50ms, reduce crossterm poll timeout from 100ms to 50ms in main event loop
+
+**Phase 12: End-to-End Smoke Test & Final Hardening**
+1. Run full signal-to-fill pipeline 10 times:
+   - Start './target/release/talon --config config/talon.toml'
+   - Wait for Firebird to generate 10 intents over 150 seconds (15s scan × 10)
+   - Approve 7 intents, reject 3 intents
+   - Verify:
+     - 7 orders submitted to IBKR (check TWS 'Orders' panel)
+     - 7 fills received (check Fills widget)
+     - 3 rejections logged (grep talon-exec logs for "ExecutionReport::Rejected")
+     - Portfolio net_liquidation updates 7 times (check watch::Receiver poll in TUI)
+     - talon.db contains 7 PortfolioSnapshot rows (query: SELECT COUNT(*) FROM portfolio_snapshots)
+     - metrics.json shows: intent_approved_total=7, intent_rejected_total=3, fill_received_total=7
+2. Test supervision timeout:
+   - Generate intent, do NOT press 'a' or 'r' for 11 seconds
+   - Confirm intent disappears from PendingIntents widget at 10s mark
+   - Check talon-exec logs for "Supervision timeout, auto-rejecting intent {intent_id}"
+   - Verify metrics.json intent_timeout_total increments by 1
+3. Test Portfolio persistence crash recovery:
+   - Run './target/release/talon', approve 3 intents, wait for fills
+   - Note Portfolio net_liquidation value in TUI
+   - Send SIGTERM to talon process (Ctrl+C)
+   - Restart './target/release/talon'
+   - Verify Portfolio net_liquidation matches previous value (loaded from talon.db latest PortfolioSnapshot)
+4. Test Carousel harvest calculation:
+   - Submit buy order for 10 shares of SPY at market
+   - Wait for fill, note buy price from Fills widget
+   - Submit sell order for 10 shares of SPY at limit price = buy_price + $1.00 (force winning trade)
+   - Wait for fill
+   - Check talon-carousel logs for "[Carousel] Harvest: $1.50 from SPY (P&L: $10.00)" (10 shares × $1.00 P&L × 15% harvest)
+   - Verify HarvestEvent written to talon.db (query: SELECT * FROM harvest_events WHERE symbol='SPY')
+   - Confirm NO actual transfer initiated (harvest_enabled=false in config)
+5. Validate Polygon.io rate limit handling:
+   - If using free tier (5 requests/minute), monitor talon-data logs during market hours
+   - If 429 errors appear, adjust [data_sources.polygon] poll_interval_seconds from 15 to 60 in talon.toml
+   - Verify Yahoo Finance fallback activates (check logs for "Polygon rate limited, falling back to Yahoo Finance")
+6. Run extended soak test:
+   - Leave './target/release/talon' running for 4 hours (covers 960 Firebird scans at 15s interval)
+   - Approve 50% of intents randomly
+   - Check for: memory leaks (monitor RSS via 'ps aux | grep talon'), channel deadlocks (no intents stuck in PendingIntents >10s), broker disconnections (grep logs for "IBKR connection lost")
+   - If RSS grows >500MB, investigate channel buffer buildup (use tokio-console to inspect channel lengths)
+7. Final regression test:
+   - Run 'cargo test --workspace --release' one more time
+   - Confirm 47/47 tests pass
+   - If any test fails, investigate but prioritize false positives (timing assumptions) over logic errors
+
+**Phase 13: Production Readiness Checklist & Documentation**
+1. Update WIRING.md with live test results:
+   - Add section "Live IBKR Gateway Validation Results" with: connection retry count, session replay file size, rate limiter drop count
+   - Add section "TUI Responsiveness Benchmarks" with: keypress latency, age highlighting accuracy, P&L color-coding accuracy
+   - Add section "End-to-End Test Results" with: 10-intent approval/rejection counts, timeout test success, crash recovery success, soak test duration
+2. Update CLAUDE.md with production architecture:
+   - Replace "PLACEHOLDER: Arc<RwLock<Portfolio>>" with actual implementation details
+   - Add "Known Limitations" section: Hatch tier requires manual approval (no auto-trading), 15s Firebird scan latency, Polygon free tier rate limits
+   - Add "Takeoff Tier Roadmap" section: Bevy ECS migration, G2 semi-supervised gate (auto-approve low-risk intents), Carousel vault transfers enabled
+3. Create RUNBOOK.md:
+   - Section 1: Pre-flight checklist (8 steps from marathon prompt fields)
+   - Section 2: Normal operation (start command, shutdown command, log locations)
+   - Section 3: Troubleshooting (6 failure modes from WIRING.md + 3 new from Phase 12 soak test)
+   - Section 4: Monitoring (metrics.json fields, talon.db query examples, TUI widget interpretation)
+   - Section 5: Emergency procedures (SIGTERM for graceful shutdown, SIGKILL if hung, manual order cancellation via TWS)
+4. Generate final metrics summary:
+   - After Phase 12 soak test, copy metrics.json to METRICS_BASELINE.json
+   - Document expected ranges: intent_approved_total (200-300 over 4 hours), fill_received_total (200-300), portfolio_net_liquidation (±$10k variance from starting capital), harvest_calculated_total (20-40 winning trades)
+5. Tag release:
+   - Run 'git tag v3.2.0-hatch-complete'
+   - Write RELEASE_NOTES.md with: completed features (signal-to-fill pipeline, supervision gate, TUI approval, Portfolio persistence, Carousel logging), known issues (Polygon rate limits on free tier, TUI overflow on <80 column terminals), next steps (Takeoff tier Bevy migration)
+
+**Verification commands for autonomous execution:**
+1. Phase 10: 'cargo run --release --bin talon -- --config config/talon.toml' (run for 60s, approve 1 test order, check TWS fill)
+2. Phase 11: 'cargo run --release --bin talon -- --config config/talon.toml' (run in 80×24 terminal, generate 5 intents, test keybindings)
+3. Phase 12: 'cargo run --release --bin talon -- --config config/talon.toml' (run for 150s, approve 7/10 intents, verify metrics.json)
+4. Phase 12 (soak): 'cargo run --release --bin talon -- --config config/talon.toml' (run 4 hours, monitor with 'watch -n 60 ps aux | grep talon')
+5. Phase 13: 'cargo test --workspace --release && git tag v3.2.0-hatch-complete'
+
+**Output format:**
+For each phase, provide:
+1. Exact commands run (with stdout/stderr snippets showing success)
+2. Code changes made (file path + diff for any tweaks like retry logic, timeout adjustments)
+3. Test results (e.g., "10/10 intents approved, 7 fills received, metrics.json intent_approved_total=7")
+4. Screenshots or ASCII dumps of TUI state at key moments (PendingIntents with 5 rows, Fills with green P&L row)
+5. Updated documentation diffs (WIRING.md additions, RUNBOOK.md new sections)
+
+**Rollback conditions:**
+- If IBKR connection fails after 4 retry attempts (32s total), pause and request human to verify Gateway status
+- If TUI event loop latency exceeds 200ms (indicating blocking I/O), pause and request human to review channel recv patterns
+- If soak test RSS exceeds 1GB (indicating memory leak), pause and request human to attach profiler
+- If any test fails that previously passed (regression), pause and request human to review git diff
+
+**Success criteria for 100% completion:**
+- All 47 tests pass in release mode
+- Live IBKR order submission succeeds with <2s latency from approval to fill
+- TUI renders correctly in 80×24 terminal with no overflow
+- 4-hour soak test completes with RSS <500MB, zero channel deadlocks, zero broker disconnections
+- RUNBOOK.md, WIRING.md, CLAUDE.md updated with production validation results
+- Git tag v3.2.0-hatch-complete created
+- User can run './target/release/talon --config config/talon.toml' and approve/reject intents for 4+ hours without intervention
+
+Proceed with Phase 10. Report progress after each phase completes. If any phase fails verification, stop and report the failure state with diagnostic information.
+
+Keep in mind the final evolution of TALON, known as TALON: Payload, is the fully armed configuration. All 8 strategy modules running hot simultaneously, each regime-gated by the detector so they activate and suppress based on real-time market conditions. The operator is still in the loop but the system has earned enough trust through Hatch and Takeoff graduation that it operates with maximum autonomy — the Dual-Control Car model where the bot drives and the human instructor monitors.
+The 8 entities scanning concurrently: Firebird hunting capitulation reversals on quality names, Thunderbird fading overextensions, Taxi pulling triggers on support pullbacks, Climb riding confirmed momentum, SAGE scalping gamma exposure anomalies on 0DTE chains, ParaShort fading parabolic blow-offs, Siphon harvesting theta in range-bound elevated-IV conditions, and Snapback (or its YoYo evolution) mean-reverting intraday on 0DTE.
+ExecCore is processing SignalEnvelopes from all 8 modules through the graduation gate, with the gate level likely at G1 or G0 — meaning most orders route automatically with the risk gate as the only filter, no operator confirmation required per trade. The risk mesh is enforcing position heat limits, daily loss caps, buying power checks against the Portfolio Resource, and cross-module exposure limits so Firebird and Thunderbird don't accidentally take opposing positions on the same underlying.
+Carousel is skimming profits after every winning close and transferring to Vault. At Payload-tier account sizes, the harvest rate drops to 10-12% per the inverse_account_size config — smaller percentage but larger absolute dollars.
+TRiMiNL is rendering all 8 module tabs with live state, the regime detector's current classification, portfolio summary, order flow, and the stress engine's tier (Normal through CircuitBreaker). The operator's primary job is watching for Flameout and Nosedive conditions and deciding whether to let the system's automatic de-risking handle it or manually EJECT.
+Blackbird (RAMjet/Chine/Spike) comes online at Payload. That's the subsystem that hasn't been specced yet but lives at this tier.
+The gateway is allocated 4GB, the full dynamic scanner is streaming, options chains are being priced in real-time via quantrs Black-Scholes, and the Parquet archive is flushing end-of-session bars for historical backtest validation.
+That's the destination. Everything between now and there is earned through graduated trust.

@@ -1,0 +1,31 @@
+# payload.toml -- Dynamic Regime 0DTE module
+# Ref: TALON_ARCHITECTURE_v3.2.0 S4.12
+
+[module]
+name = "payload"
+tier = "turbo"
+enabled = true
+supervision = "dual_control_strict"  # adaptive behavior, no auto-trust
+
+[module.strategy]
+type = "zero_dte_adaptive"
+fuses = ["snapback", "yoyo"]         # selects strategy based on regime + time + events
+
+[module.prerequisites]
+min_validated_days_snapback = 30
+min_validated_days_yoyo = 30
+both_must_be_profitable = true
+min_capital = 50000
+
+[module.hard_close]
+close_time_est = "15:45"
+escalation_order = ["limit", "aggressive_limit", "market"]
+aggressive_limit_multiplier = 1.02
+market_fallback_timeout_secs = 60
+ntp_sync_required = true
+
+[module.activation]
+# If either prerequisite module is disabled, Payload is disabled.
+# Payload never operates in conditions its components have not
+# been individually validated for.
+disable_on_prerequisite_disabled = true

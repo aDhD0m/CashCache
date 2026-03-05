@@ -1,0 +1,31 @@
+# climb.toml -- Intraday Momentum Breakout module
+# Ref: TALON_ARCHITECTURE_v3.2.0 S4.7
+
+[module]
+name = "climb"
+tier = "takeoff"
+enabled = true
+supervision = "dual_control"
+
+[module.strategy]
+type = "equity_long"
+hold_period = "intraday"             # strictly intraday, no overnight
+
+[module.signals]
+# Pre-market scanner, real-time L2 data, volume confirmation
+# Breakout above pre-market high with volume
+
+[module.filters]
+min_market_cap = 50_000_000          # $50M -- nano/micro cap
+max_market_cap = 2_000_000_000       # $2B
+min_float_shares = 5_000_000
+max_float_shares = 50_000_000
+
+[module.risk]
+pdt_awareness = true                 # every round-trip is a day trade
+min_equity_for_activation = 25000    # below $25K = module disabled
+trailing_stop = true
+
+[module.l2_fallback]
+# If L2 data drops mid-trade, manage on L1 with tighter stops
+l1_only_stop_tightening_pct = 25.0   # tighten stop 25% from current distance

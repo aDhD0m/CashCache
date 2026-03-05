@@ -1,0 +1,26 @@
+Objective: Refactor a running 20-crate Rust trading terminal (TALON v3.2.0) from its current Hatch-tier state to a fully wired Hatch-tier system where one strategy module (Firebird) generates OrderIntents from live market data, routes them through the supervision gate, and displays everything in TRiMiNL — all on IBKR Gateway paper trading port 4002.
+Current state: 20 crates compile clean, 33 tests pass. Three strategy modules have logic (Firebird, Thunderbird, Taxi). The rest are empty scaffolds. Market data flows from Polygon.io (15s poll) + Yahoo Finance (30s fallback) + IBKR historical bars into a DashMap quote cache. The TUI renders. The broker connects. But the full signal-to-order pipeline is not end-to-end wired: strategy modules generate ScanResults, but the path from ScanResult through talon-exec's supervision gate to talon-broker order submission is incomplete.
+What needs to happen:
+
+Wire the Firebird module's ScanResult output through talon-exec's supervision gate (G3 hard gate for Hatch tier — every order requires operator approval)
+Render pending intents in TRiMiNL with accept/reject keybindings
+On operator approval, route the OrderIntent to talon-broker for paper submission
+Display fill confirmations in TRiMiNL
+Update the Portfolio Bevy Resource on fills
+Wire talon-carousel to calculate harvest amount on winning trade closes (log only — no actual transfer in Hatch)
+
+Constraints:
+
+All prices rust_decimal::Decimal, never f64
+Strategy crates cannot depend on talon-exec or read Portfolio directly
+Communication is bounded channels only (SignalEnvelope in, ExecutionReport out)
+Edition 2024, Rust 1.85, openSUSE Tumbleweed
+IBKR adapter uses ibapi v2 (already connected, already working)
+No Bevy ECS integration yet — that's Takeoff tier. Current architecture uses tokio channels + arc_swap + watch. Don't introduce Bevy now.
+
+Attached context (6 files):
+
+TALON_SCAFFOLD.md — target architecture, dependency graph, firewall rules, tier progression
+CLAUDE.md — current project state, crate map, rename history, test counts
+carousel.toml — harvest configuration (modes, rates, instruments, deployment rules)
+01-05 research docs — broker integration patterns, TUI framework reference, quant math, data pipeline architecture

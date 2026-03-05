@@ -1,0 +1,34 @@
+# sage.toml -- Gamma Exposure Scalping module
+# Ref: TALON_ARCHITECTURE_v3.2.0 S4.8
+
+[module]
+name = "sage"
+tier = "turbo"
+enabled = true
+supervision = "dual_control"         # auto-hedge within bounds, new exposure needs approval
+
+[module.strategy]
+type = "options_greeks"
+underlyings = ["SPX", "SPY", "QQQ"]
+# Also scans high-GEX individual names
+
+[module.signals]
+# GEX flip level proximity + dealer positioning + RV/IV divergence
+gex_data_source = "computed"         # "computed" (from chain) or "third_party"
+# third_party options: "spotgamma", "orats"
+iv_rank_entry_threshold = 50.0
+stale_data_timeout_secs = 30         # pause signal gen if chain data > 30s old
+
+[module.execution]
+atomic_spread_required = true        # multi-leg must be submitted as single order
+# IBKR: ComboLeg. Cobra: DAS TAPI spread. If broker doesn't support, SAGE is disabled.
+
+[module.auto_hedge]
+enabled = true
+max_delta_deviation = 0.10           # auto-hedge within +/- 0.10 delta
+# Adjustments within bounds are pre-approved. New directional = approval required.
+
+[module.degraded_mode]
+# If GEX computation fails (missing OI data)
+fallback = "iv_rank_only"
+confidence_reduction_pct = 30.0      # reduce confidence by 30% in degraded mode

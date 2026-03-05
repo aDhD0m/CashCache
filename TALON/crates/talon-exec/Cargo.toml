@@ -1,0 +1,15 @@
+[package]
+name = "talon-exec"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+talon-types = { path = "../talon-types" }
+talon-broker = { path = "../talon-broker" }
+talon-risk = { path = "../talon-risk" }
+tokio = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+rust_decimal = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }

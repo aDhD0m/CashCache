@@ -1,0 +1,28 @@
+# alpaca.toml -- Alpaca Markets configuration
+# Ref: TALON_ARCHITECTURE_v3.2.0 S6.1
+
+[broker]
+id = "alpaca"
+name = "Alpaca Markets"
+priority = "P1"
+api = "rest_websocket"
+
+[broker.rest]
+base_url = "https://paper-api.alpaca.markets"   # paper
+# base_url = "https://api.alpaca.markets"       # live
+api_key_id = ""
+api_secret_key = ""
+
+[broker.websocket]
+stream_url = "wss://stream.data.alpaca.markets/v2/sip"
+
+[broker.capabilities]
+supports_options = false              # Equities only
+supports_short = false
+supports_fractional = true
+supports_crypto = false               # Not used by TALON
+
+[broker.reconnection]
+max_retries = 30
+retry_interval_secs = 10
+reconnect_triggers_reconciliation = true

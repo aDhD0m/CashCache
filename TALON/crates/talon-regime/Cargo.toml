@@ -1,0 +1,8 @@
+[package]
+name = "talon-regime"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+talon-types = { path = "../talon-types" }
+talon-data = { path = "../talon-data" }

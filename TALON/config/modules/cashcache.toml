@@ -1,0 +1,117 @@
+# cashcache.toml -- CashCache Vault profit preservation module
+# Ref: TALON_ARCHITECTURE_v3.2.0 S4.5
+# Ref: CASHCACHE_MODULE_SPEC_v0.4.0 S3, S4, S6, S8, S9, S12
+
+[module]
+name = "cashcache"
+tier = "hatch"
+enabled = true
+
+# --- Harvest (CASHCACHE S3) ---
+
+[harvest]
+mode = "inverse_account_size"        # "fixed", "inverse_account_size", "win_streak", "off"
+min_rate_pct = 5.0                   # enforced floor regardless of mode/tier
+
+[harvest.fixed]
+rate_pct = 20.0
+
+[harvest.inverse_account_size]
+# Active account NLV -> harvest rate
+tier_0_max = 2000
+tier_0_rate_pct = 30.0
+tier_1_max = 5000
+tier_1_rate_pct = 25.0
+tier_2_max = 10000
+tier_2_rate_pct = 20.0
+tier_3_max = 25000
+tier_3_rate_pct = 15.0
+tier_4_max = 50000
+tier_4_rate_pct = 12.0
+tier_5_rate_pct = 10.0               # $50K+
+
+[harvest.win_streak]
+streak_1_rate_pct = 10.0
+streak_2_rate_pct = 15.0
+streak_3_rate_pct = 20.0
+streak_4_rate_pct = 25.0
+streak_5_plus_rate_pct = 30.0
+breakeven_tolerance = 1.00           # $1 tolerance for break-even
+
+# --- Deployment (CASHCACHE S6) ---
+
+[deployment]
+min_threshold = 10.00                # $10 minimum deployable
+hybrid_immediate_pct = 50.0          # 50% immediate, 50% DCA
+execution_window_minutes = 30        # DCA tranche within first 30min of session
+
+[deployment.execution]
+safe_list_strategy = "market_immediate"
+custom_strategy = "passive_aggressive"
+passive_aggressive_tolerance_bps = 30   # 0.3%
+passive_aggressive_timeout_mins = 30
+
+# --- Instruments (CASHCACHE S4) ---
+
+[instruments]
+default_weights = [
+    { symbol = "SPY", weight = 33.3 },
+    { symbol = "QQQ", weight = 33.3 },
+    { symbol = "SCHD", weight = 33.4 },
+]
+
+[instruments.custom]
+max_concentration_pct = 30.0         # no single instrument > 30% at purchase
+min_instruments_warning = 3          # advisory, not enforced
+min_market_cap = 1_000_000_000       # $1B for custom tickers
+no_options = true
+no_leveraged_inverse = true
+no_otc_penny = true
+
+# --- Broker Residency (CASHCACHE S8) ---
+
+[broker]
+vault_broker = "ibkr"               # always IBKR
+vault_sub_account_id = ""           # separate IBKR sub-account
+
+[broker.margin_isolation]
+exclude_from_margin_calculation = true  # DEFAULT -- S8.4 Collateral Opt-Out
+
+[broker.gravity_well]
+# Cobra-to-IBKR transfer threshold (CASHCACHE S8.5)
+min_transfer = 100.00               # $100 floor
+max_fee_ratio_pct = 0.5             # fee must be < 0.5% of transfer
+transfer_method = "ach"             # "ach" or "wire"
+
+# --- Account Size Scaling (CASHCACHE S9) ---
+
+[scaling]
+# Active account NLV -> scaling params
+# [min_nlv, dca_days, concentration_limit_pct, min_instruments, cash_buffer_max]
+tiers = [
+    { max_nlv = 2000, dca_days = 3, concentration_pct = 40, min_instruments = 2, buffer_max = 50.00 },
+    { max_nlv = 10000, dca_days = 5, concentration_pct = 30, min_instruments = 3, buffer_max = 100.00 },
+    { max_nlv = 25000, dca_days = 5, concentration_pct = 25, min_instruments = 3, buffer_max = 250.00 },
+    { max_nlv = 50000, dca_days = 7, concentration_pct = 20, min_instruments = 4, buffer_max = 500.00 },
+    { max_nlv = 999999999, dca_days = 10, concentration_pct = 15, min_instruments = 5, buffer_max = 1000.00 },
+]
+
+# --- Stop-Loss (CASHCACHE S12.2) ---
+
+[stop_loss]
+broad_market_etf = "none"           # held through any drawdown
+individual_equity_pct = -35.0
+custom_ticker_pct = -25.0
+evaluation = "market_close_only"    # not intraday
+
+# --- Dividends (CASHCACHE S11) ---
+
+[dividends]
+mode = "drip"                        # "drip" or "route_to_active"
+
+# --- Liquidation Protocol (CASHCACHE S7.3) ---
+
+[liquidation]
+reconfirmation_window_start_hour_est = 4    # Day 2, 0400 EST
+reconfirmation_window_end_hour_est = 20     # Day 3, 2000 EST
+cooling_period_hours = 48                   # after successful execution

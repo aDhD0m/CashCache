@@ -1,0 +1,27 @@
+# webull.toml -- Webull configuration
+# Ref: TALON_ARCHITECTURE_v3.2.0 S6.1
+
+[broker]
+id = "webull"
+name = "Webull"
+priority = "P1-ALT"
+api = "http_grpc_mqtt"
+# Webull has no official documented API.
+# Integration uses reverse-engineered HTTP + GRPC + MQTT protocols.
+# Post-Austin priority. Evaluate stability before committing.
+
+[broker.http]
+base_url = ""
+device_id = ""
+# Authentication requires device-based token flow.
+
+[broker.capabilities]
+supports_options = true               # Limited options support
+supports_short = false
+supports_fractional = true
+supports_spread_orders = false        # No multi-leg -- SAGE/Siphon not viable
+
+[broker.reconnection]
+max_retries = 30
+retry_interval_secs = 10
+reconnect_triggers_reconciliation = true

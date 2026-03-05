@@ -1,0 +1,33 @@
+# siphon.toml -- Theta Decay Farming module
+# Ref: TALON_ARCHITECTURE_v3.2.0 S4.10
+
+[module]
+name = "siphon"
+tier = "turbo"                       # full at Turbo, preview at Hatch margin
+enabled = true
+supervision = "dual_control"
+
+[module.strategy]
+type = "options_spreads"
+strategies = ["credit_spread", "iron_condor", "calendar_spread"]
+hold_period_days_min = 7
+hold_period_days_max = 45
+
+[module.signals]
+# Range-bound underlyings: ADX < 25, IV rank > 50th percentile
+adx_max = 25
+iv_rank_min_pct = 50.0
+
+[module.exits]
+target_credit_capture_pct = 50.0     # exit at 50% of max credit
+stop_loss_multiple = 2.0             # exit at 200% of credit received
+
+[module.execution]
+atomic_spread_required = true
+early_assignment_monitoring = true   # watch short legs near ex-dividend
+
+[module.hatch_preview]
+# Available at Hatch with margin ($5K+)
+hatch_strategies = ["credit_spread"] # verticals only
+required_options_level = 1           # Level 1 (Limited) for cash-secured puts
+full_options_level = 2               # Level 2 (Standard) for full verticals

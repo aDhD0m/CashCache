@@ -1,0 +1,12 @@
+[package]
+name = "talon-vault"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+talon-types = { path = "../talon-types" }
+talon-store = { path = "../talon-store" }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+rust_decimal = { workspace = true }
+chrono = { workspace = true }

@@ -1,0 +1,28 @@
+# snapback.toml -- Mean-Reversion 0DTE module
+# Ref: TALON_ARCHITECTURE_v3.2.0 S4.6
+
+[module]
+name = "snapback"
+tier = "takeoff"
+enabled = true
+supervision = "dual_control_strict"  # no auto-trust, ever
+
+[module.strategy]
+type = "zero_dte_options"
+underlyings = ["SPX", "SPY"]
+preferred = "SPX"                    # European-style, cash-settled, no assignment risk
+
+[module.signals]
+# VWAP deviation + IV rank + time-of-day regime
+vwap_deviation_threshold = 1.5       # standard deviations from VWAP
+
+[module.hard_close]
+# NON-NEGOTIABLE. All positions closed by this time.
+close_time_est = "15:45"
+escalation_order = ["limit", "aggressive_limit", "market"]
+aggressive_limit_multiplier = 1.02   # ask x 1.02, IOC
+market_fallback_timeout_secs = 60    # seconds before escalating to market
+ntp_sync_required = true
+
+[module.risk]
+max_position_size_pct = 2.0          # of account, stress-adjusted

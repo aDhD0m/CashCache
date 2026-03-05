@@ -1,0 +1,29 @@
+# yoyo.toml -- Binary Event 0DTE module
+# Ref: TALON_ARCHITECTURE_v3.2.0 S4.11
+
+[module]
+name = "yoyo"
+tier = "turbo"
+enabled = true
+supervision = "dual_control_strict"  # binary events, no auto-trust
+
+[module.strategy]
+type = "zero_dte_options"
+events = ["FOMC", "CPI", "NFP"]
+pre_event = "straddle"               # if IV underprices the move
+post_event = "directional"           # based on initial move direction
+
+[module.hard_close]
+close_time_est = "15:45"             # same as Snapback
+escalation_order = ["limit", "aggressive_limit", "market"]
+aggressive_limit_multiplier = 1.02
+market_fallback_timeout_secs = 60
+ntp_sync_required = true
+
+[module.risk]
+binary_sizing = true                 # smaller size, wider stops than Snapback
+
+[module.event_calendar]
+source = ""                          # event calendar integration endpoint
+no_calendar_behavior = "idle"        # IDLE with "NO EVENT CALENDAR" in TUI
+force_arm_command = ":yoyo force-arm"  # manual override

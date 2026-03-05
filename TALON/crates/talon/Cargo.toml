@@ -1,0 +1,29 @@
+[package]
+name = "talon"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "talon"
+path = "src/main.rs"
+
+[dependencies]
+talon-types = { path = "../talon-types" }
+talon-db = { path = "../talon-db" }
+talon-broker = { path = "../talon-broker" }
+talon-risk = { path = "../talon-risk" }
+talon-exec = { path = "../talon-exec" }
+talon-triminl = { path = "../talon-triminl" }
+talon-data = { path = "../talon-data" }
+talon-firebird = { path = "../talon-firebird" }
+talon-thunderbird = { path = "../talon-thunderbird" }
+talon-taxi = { path = "../talon-taxi" }
+tokio = { workspace = true }
+chrono = { workspace = true }
+dotenvy = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+clap = { workspace = true }
+anyhow = { workspace = true }
+rust_decimal = { workspace = true }
+toml = { workspace = true }

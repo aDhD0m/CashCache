@@ -1,0 +1,40 @@
+# cobra.toml -- Cobra Trading configuration
+# Ref: TALON_ARCHITECTURE_v3.2.0 S6.1, S12.4
+
+[broker]
+id = "cobra"
+name = "Cobra Trading"
+priority = "P2"
+api = "das_tapi"                      # DAS Trader Pro TAPI + FIX 4.2
+
+[broker.das_tapi]
+host = ""
+port = 0
+username = ""
+# DAS TAPI is a TCP socket protocol.
+# Connection requires DAS Trader Pro running locally or via remote desktop.
+
+[broker.fix]
+# FIX 4.2 for order routing if TAPI is insufficient
+host = ""
+port = 0
+sender_comp_id = ""
+target_comp_id = ""
+
+[broker.capabilities]
+supports_options = true
+supports_short = true                 # Primary reason for Cobra
+supports_locates = true               # Professional locate inventory
+supports_fractional = false
+supports_spread_orders = true         # DAS TAPI spread orders
+
+[broker.reconnection]
+max_retries = 30
+retry_interval_secs = 10
+reconnect_triggers_reconciliation = true
+no_reconnect_timeout_secs = 60       # After 60s, enter exit-only mode
+
+[broker.emergency]
+web_platform = "https://das.cobratrading.com"
+phone = "512-850-5022"               # Cobra desk -- CRITICAL for open shorts
+support_hours = "Mon-Fri 8:00-17:00 EST"

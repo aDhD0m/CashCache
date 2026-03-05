@@ -1,0 +1,12 @@
+[package]
+name = "talon-risk"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+talon-types = { path = "../talon-types" }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+rust_decimal = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }

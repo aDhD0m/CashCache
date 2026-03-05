@@ -1,0 +1,16 @@
+[package]
+name = "talon-data"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+talon-types = { path = "../talon-types" }
+tokio = { workspace = true }
+reqwest = { workspace = true }
+yahoo_finance_api = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+rust_decimal = { workspace = true }
+chrono = { workspace = true }

@@ -1,0 +1,8 @@
+[package]
+name = "talon-snapback"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+talon-types = { path = "../talon-types" }
+talon-util = { path = "../talon-util" }

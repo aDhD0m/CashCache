@@ -1,0 +1,16 @@
+[package]
+name = "talon-firebird"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+talon-types = { path = "../talon-types" }
+talon-util = { path = "../talon-util" }
+async-trait = { workspace = true }
+tracing = { workspace = true }
+rust_decimal = { workspace = true }
+chrono = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+rust_decimal_macros = { workspace = true }

@@ -1,0 +1,15 @@
+[package]
+name = "talon-carousel"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+talon-types = { path = "../talon-types" }
+talon-broker = { path = "../talon-broker" }
+talon-db = { path = "../talon-db" }
+rust_decimal = { workspace = true }
+chrono = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }

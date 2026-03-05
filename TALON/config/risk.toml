@@ -1,0 +1,80 @@
+# risk.toml -- Risk mesh, stress multiplier, flameout, forced cover
+# Ref: TALON_ARCHITECTURE_v3.2.0 S7.2, S7.3, S7.4, S7.7
+
+# --- Account-Level Risk Parameters (S7.2) ---
+
+[risk.hatch]
+max_single_position_risk_pct = 5.0
+max_total_exposure_pct = 60.0
+max_concurrent_positions = 5
+drawdown_circuit_breaker_pct = -15.0
+daily_loss_limit_pct = 5.0
+
+[risk.takeoff]
+max_single_position_risk_pct = 3.0
+max_total_exposure_pct = 80.0
+max_concurrent_positions = 10
+drawdown_circuit_breaker_pct = -10.0
+daily_loss_limit_pct = 3.0
+
+[risk.turbo]
+max_single_position_risk_pct = 2.0
+max_total_exposure_pct = 80.0
+max_concurrent_positions = 15
+drawdown_circuit_breaker_pct = -8.0
+daily_loss_limit_pct = 2.0
+
+# --- Stress Multiplier (S7.3) ---
+# Drawdown from peak -> multiplier applied to ALL numeric limits.
+
+[risk.stress]
+tier_0_threshold_pct = 3.0            # 0-3% = normal (1.0x)
+tier_1_multiplier = 0.75              # 3-5% drawdown
+tier_2_threshold_pct = 5.0
+tier_2_multiplier = 0.50              # 5-8% drawdown
+tier_3_threshold_pct = 8.0
+tier_3_multiplier = 0.25              # 8% to circuit breaker (FLAMEOUT)
+override_cooldown_mins = 15           # between manual override-ups
+
+# --- Flameout Protocol (S7.4) ---
+# Trailing stop tightening at stress x0.25.
+# The engine coughing before it dies.
+
+[risk.flameout]
+trigger_multiplier = 0.25
+profitable_positions = "trail_to_breakeven"
+losing_positions = "tighten_stop_50pct"
+
+# --- Forced Cover Protocol (S7.7) ---
+# Only code path bypassing Dual-Control. Short positions only.
+
+[risk.forced_cover]
+trigger_pct = 10.0                    # % adverse from entry
+order_type = "aggressive_limit"       # Limit at ask x 1.02, IOC
+retry_delay_secs = 30                 # If unfilled, retry as market
+halt_escalation_mins = 10             # After halt resume, time before market order
+
+# --- Supervision-on-Timeout Defaults (S7.8) ---
+
+[risk.timeout_defaults]
+new_position_entry = "reject"
+stop_loss_exit = "execute"
+forced_cover = "execute"
+zero_dte_hard_close = "execute"
+cashcache_harvest = "execute"
+
+# --- Module-Level Risk Allocation (S7.6) ---
+# Static allocation per module. Sum must not exceed account ceiling.
+# Values are percentages of account-level limits.
+
+[risk.module_allocation]
+firebird = 25.0
+thunderbird = 25.0
+taxi = 30.0
+snapback = 20.0
+climb = 20.0
+sage = 25.0
+parashort = 15.0
+siphon = 30.0
+yoyo = 15.0
+payload = 20.0

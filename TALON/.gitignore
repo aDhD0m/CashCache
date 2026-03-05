@@ -1,0 +1,15 @@
+# Build
+/target/
+
+# Runtime data
+/data/
+
+# Secrets
+.env
+.env.*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*~

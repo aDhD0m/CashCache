@@ -1,0 +1,26 @@
+# parashort.toml -- Parabolic Fade module
+# Ref: TALON_ARCHITECTURE_v3.2.0 S4.9
+
+[module]
+name = "parashort"
+tier = "turbo"
+enabled = true
+supervision = "dual_control_strict"  # theoretically unlimited loss, no auto-trust
+
+[module.strategy]
+type = "equity_short"
+hold_period = "hours_to_days"
+
+[module.signals]
+# >100% move in <5 sessions + volume divergence + failed new high + bearish engulfing
+min_move_pct = 100.0
+max_move_sessions = 5
+
+[module.locate]
+# Locate is a HARD PREREQUISITE -- must succeed before signal generation
+pre_signal_locate = true
+max_borrow_cost_pct = 50.0          # % of expected profit before downgrade to WATCH
+
+[module.risk]
+hard_stop_above_parabolic_high = true
+forced_cover_trigger_pct = 10.0      # % adverse from entry, triggers S7.7

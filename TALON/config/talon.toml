@@ -1,0 +1,151 @@
+# system.toml -- TALON system-level configuration
+# Tiers, regulatory parameters, paths, system modes.
+# Ref: TALON_ARCHITECTURE_v3.2.0 S3, S7, S11.10, S15, S16.5
+
+[system]
+name = "TALON"
+version = "3.2.0"
+log_level = "info"                    # trace, debug, info, warn, error
+
+[system.paths]
+config_dir = "config"
+data_dir = "data"
+backup_dir = "backups/daily"
+scripts_dir = "scripts"
+
+[system.modes]
+# Modules eligible for Cruising Altitude (S11.10).
+# When ALL active positions are in these modules and no intraday
+# module is SCANNING, the operator can step away.
+cruising_altitude_eligible_modules = [
+    "firebird",
+    "thunderbird",
+    "taxi",
+    "siphon",
+    "carousel",
+]
+
+# --- Tiers (S3) ---
+
+[tiers.hatch]
+name = "Hatch"
+min_capital = 500
+max_capital = 25000
+account_type = "cash"                 # "cash" or "margin"
+margin_upgrade_threshold = 5000       # cash -> margin at this level
+supervision = "supervised_autonomy"
+primary_broker = "ibkr"
+
+[tiers.takeoff]
+name = "Takeoff"
+min_capital = 25000
+account_type = "margin"
+supervision = "dual_control"
+primary_broker = "ibkr"
+
+[tiers.payload]
+name = "Payload"
+min_capital = 30000
+account_type = "margin"
+supervision = "dual_control_full"
+primary_broker = "cobra"
+
+# --- Regulatory (S16.5) ---
+
+[regulatory]
+pdt_rule_active = true
+min_day_trading_equity = 25000
+margin_framework = "fixed"            # "fixed" or "dynamic"
+
+[regulatory.dynamic_margin]
+# Populated when margin_framework = "dynamic"
+# Parameters TBD based on final SEC-approved rule text
+# (SR-FINRA-2025-017, projected mid-2026 approval)
+
+# --- Observability (S12.2) ---
+
+[observability]
+tracing_framework = "tracing"
+log_file = "data/talon.log"
+log_rotation = "daily"
+span_correlation = true               # correlation spans on trade lifecycle
+
+# --- Watchdog (S12.3) ---
+
+# --- Watchlist (global scan universe) ---
+# All modules scan these symbols. You're paying for the data — use it.
+# Criteria: liquid, optionable, $2B+ market cap, tight spreads.
+
+[watchlist]
+symbols = [
+    # --- Mega-cap tech ---
+    "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "AVGO", "AMD", "CRM",
+    "ORCL", "ADBE", "INTC", "QCOM", "MU", "AMAT", "LRCX", "KLAC", "MRVL", "SNPS",
+    # --- Financials ---
+    "JPM", "BAC", "GS", "MS", "WFC", "C", "SCHW", "BLK", "AXP", "COF",
+    # --- Healthcare / Biotech ---
+    "UNH", "JNJ", "LLY", "ABBV", "MRK", "PFE", "TMO", "AMGN", "GILD", "BMY",
+    # --- Consumer ---
+    "WMT", "COST", "HD", "NKE", "SBUX", "MCD", "DIS", "NFLX", "ABNB", "BKNG",
+    # --- Energy ---
+    "XOM", "CVX", "COP", "SLB", "EOG", "OXY",
+    # --- Industrials ---
+    "CAT", "DE", "BA", "RTX", "GE", "HON", "UPS", "LMT",
+    # --- ETFs (index + sector) ---
+    "SPY", "QQQ", "IWM", "DIA", "XLF", "XLE", "XLK", "XLV", "XLI", "XLP",
+    "ARKK", "SMH", "SOXX", "GLD", "SLV", "TLT", "HYG", "VIXY",
+    # --- High-beta / momentum names ---
+    "COIN", "MSTR", "PLTR", "RKLB", "SNOW", "NET", "DDOG", "CRWD", "ZS", "PANW",
+    "XYZ", "SHOP", "ROKU", "DASH", "UBER", "LYFT", "RIVN", "LCID",
+]
+
+[watchdog]
+notify_interval_secs = 10
+watchdog_sec = 30                     # systemd WatchdogSec
+panic_script = "scripts/talon-panic.sh"
+
+# --- Supervision (S7.1) ---
+
+[supervision]
+timeout_secs = 10                     # auto-reject after 10s with no decision
+max_pending_intents = 10              # reject new intents when queue is full
+
+# --- Channels ---
+
+[channels]
+intent_capacity = 100                 # modules -> ExecCore
+fill_capacity = 50                    # broker -> ExecCore broadcast
+quote_capacity = 4096                 # broker -> system broadcast
+supervision_capacity = 50             # TUI -> ExecCore
+event_capacity = 1024                 # system -> EventStore
+flow_cmd_capacity = 32                # TUI -> FlowManager
+
+# --- Carousel (Profit Harvest) ---
+
+[carousel]
+harvest_rate = 0.15                   # 15% of realized P&L harvested
+harvest_enabled = false               # false at Hatch tier (logging only)
+min_harvest_amount = 1.00             # minimum P&L to trigger harvest
+inverse_scale_base = 25000            # account size at which rate starts declining
+
+# --- Metrics ---
+
+[metrics]
+file = "data/metrics.json"
+flush_interval_secs = 30              # write metrics to file every 30s
+
+# --- Portfolio ---
+
+[portfolio]
+starting_capital = 10000.00           # initial paper trading capital
+persistence_interval_secs = 5         # save PortfolioSnapshot to talon-db
+db_file = "data/events.db"            # same SQLite as EventStore
+
+# --- Broker (IBKR) ---
+
+[broker.ibkr]
+host = "127.0.0.1"
+port = 4002                           # IB Gateway paper trading
+client_id = 333
+rate_limit_msgs_per_sec = 50
+session_replay_enabled = false

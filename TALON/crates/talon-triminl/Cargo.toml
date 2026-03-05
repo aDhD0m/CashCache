@@ -1,0 +1,14 @@
+[package]
+name = "talon-triminl"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+talon-types = { path = "../talon-types" }
+ratatui = { workspace = true }
+crossterm = { workspace = true }
+tokio = { workspace = true }
+futures = { workspace = true }
+tracing = { workspace = true }
+rust_decimal = { workspace = true }
+chrono = { workspace = true }

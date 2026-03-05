@@ -1,0 +1,31 @@
+# taxi.toml -- Equity Swing Loader module
+# Ref: TALON_ARCHITECTURE_v3.2.0 S4.4
+
+[module]
+name = "taxi"
+tier = "hatch"
+enabled = true
+supervision = "supervised_autonomy"
+
+[module.strategy]
+type = "equity_long"
+hold_period_days_min = 3
+hold_period_days_max = 15
+
+[module.signals]
+# Price action, volume, sector relative strength
+# Pullback-to-support, breakout-with-volume, sector rotation
+
+[module.filters]
+min_market_cap = 2_000_000_000       # $2B -- mid/large cap only
+long_only = true
+no_averaging_down = true
+
+[module.risk]
+hard_stop_risk_pct = 2.0             # 1-2% risk per position
+max_concurrent_positions = 5         # keeps capital cycling on T+1
+
+[module.settlement]
+# Cash account awareness -- track settled vs unsettled
+track_settled_cash = true
+prevent_free_riding = true           # reject orders if insufficient settled funds
